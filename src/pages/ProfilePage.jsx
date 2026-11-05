@@ -13,6 +13,7 @@ import {
   Lock,
   Save,
   X,
+  LogOut,
   FileCode,
   Palette,
   Atom,
@@ -56,6 +57,7 @@ export default function ProfilePage() {
     updateProfile,
     uploadAvatar,
     openHistoricalAttemptReview,
+    logout,
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -170,7 +172,7 @@ export default function ProfilePage() {
               </div>
 
               <p className="text-sm font-bold text-indigo-600">
-                @{profile.username} • {profile.email}
+                @{profile.username}
               </p>
 
               <p className="text-sm text-slate-600 max-w-2xl">
@@ -179,14 +181,26 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenEdit}
-            className="px-5 py-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-extrabold text-xs uppercase tracking-wider inline-flex items-center gap-2 self-start md:self-center shrink-0 cursor-pointer"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>{t.profile.editProfile}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-center shrink-0">
+            <button
+              type="button"
+              onClick={handleOpenEdit}
+              className="px-5 py-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-extrabold text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer transition-colors"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>{t.profile.editProfile}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={logout}
+              className="px-4 py-3 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 border border-rose-200 font-extrabold text-xs uppercase tracking-wider inline-flex items-center gap-2 cursor-pointer transition-colors"
+              title={t.nav.logout}
+            >
+              <LogOut className="w-4 h-4" />
+              <span>{t.nav.logout}</span>
+            </button>
+          </div>
         </div>
 
         {statusMsg && (

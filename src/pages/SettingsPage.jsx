@@ -9,6 +9,7 @@ import {
   Sparkles,
   Save,
   Server,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LANGUAGES } from '../data/translations';
@@ -27,6 +28,7 @@ export default function SettingsPage() {
     timerEnabledByDefault,
     setTimerEnabledByDefault,
     t,
+    logout,
   } = useApp();
 
   const supaInfo = getActiveSupabaseInfo();
@@ -281,6 +283,29 @@ export default function SettingsPage() {
             <span>{seedError}</span>
           </div>
         )}
+      </div>
+
+      {/* ACCOUNT SESSION & LOGOUT SECTION */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-rose-100/90 shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+          <div className="space-y-1">
+            <h2 className="text-lg font-extrabold text-slate-900">
+              {t.settings.accountSessionTitle}
+            </h2>
+            <p className="text-xs text-slate-500 max-w-xl">
+              {t.settings.accountSessionDesc}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="px-6 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-rose-500/20 shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>{t.nav.logout}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

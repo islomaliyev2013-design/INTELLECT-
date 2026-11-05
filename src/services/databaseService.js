@@ -352,43 +352,63 @@ async function ensureUserRecordsExist(userObj, meta = {}) {
  * AUTHENTICATION: Register a new user
  * Strictly starts at Level 1 with 0 XP and independent progress.
  */
-export async function registerUser({ fullName, username, email, password, countryCode = 'UZ' }) {
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanUsername = username.trim().toLowerCase().replace(/\s+/g, '_');
+export async function registerUser({
+  fullName,
+  username,
+  email,
+  password,
+  countryCode = 'UZ',
+  avatarUrl = null,
+}) {
+  const cleanUsername = (username || fullName || 'learner')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+
+  const cleanFullName = (fullName || cleanUsername).trim();
+  const cleanEmail = (email && email.trim())
+    ? email.trim().toLowerCase()
+    : `${cleanUsername}@learner.local`;
 
   const db = loadLocalDb();
 
-  // Check if username or email is already taken locally
-  const existingUserByEmail = Object.values(db.users).find((u) => u.email === cleanEmail);
-  if (existingUserByEmail && !isLiveSupabaseConfigured) {
-    throw new Error('An account with this email address already exists. Please sign in.');
-  }
-
-  const existingProfileByUsername = Object.values(db.profiles).find(
+  // Check if username or email is already registered locally
+  const existingByEmail = Object.values(db.users).find((u) => u.email === cleanEmail);
+  const existingByUsername = Object.values(db.profiles).find(
     (p) => p.username.toLowerCase() === cleanUsername
   );
-  if (existingProfileByUsername) {
+
+  if (existingByEmail && !isLiveSupabaseConfigured) {
+    throw new Error('An account with this email already exists. Please sign in.');
+  }
+  if (existingByUsername && !isLiveSupabaseConfigured) {
     throw new Error('This username is already taken. Please choose another username.');
   }
 
   let userId = generateId();
 
   if (isLiveSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.auth.signUp({
-      email: cleanEmail,
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-          username: cleanUsername,
-          country_code: countryCode,
-          country_name: getCountryByCode(countryCode).name,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password || 'QuizSecurePass2026!',
+        options: {
+          data: {
+            full_name: cleanFullName,
+            username: cleanUsername,
+            country_code: countryCode,
+            country_name: getCountryByCode(countryCode).name,
+            avatar_url: avatarUrl,
+          },
         },
-      },
-    });
-    if (error) throw new Error(error.message);
-    if (data?.user?.id) {
-      userId = data.user.id;
+      });
+      if (error) throw new Error(error.message);
+      if (data?.user?.id) {
+        userId = data.user.id;
+      }
+    } catch (err) {
+      console.warn('Supabase auth signup fallback:', err.message);
     }
   }
 
@@ -396,25 +416,32 @@ export async function registerUser({ fullName, username, email, password, countr
   const userRecord = {
     id: userId,
     email: cleanEmail,
-    passwordHash: btoa(encodeURIComponent(password)),
+    username: cleanUsername,
+    passwordHash: password ? btoa(encodeURIComponent(password)) : null,
     created_at: new Date().toISOString(),
   };
 
-  db.users[userId] = userRecord;
-  db.profiles[userId] = buildFreshUserProfile({
+  const freshProfile = buildFreshUserProfile({
     id: userId,
     email: cleanEmail,
-    fullName,
+    fullName: cleanFullName,
     username: cleanUsername,
     countryCode,
   });
+
+  if (avatarUrl) {
+    freshProfile.avatar_url = avatarUrl;
+  }
+
+  db.users[userId] = userRecord;
+  db.profiles[userId] = freshProfile;
   db.user_subject_progress[userId] = buildFreshSubjectProgressMap(userId);
   db.user_achievements[userId] = [];
   saveLocalDb(db);
 
   await ensureUserRecordsExist(
     { id: userId, email: cleanEmail },
-    { fullName, username: cleanUsername, countryCode }
+    { fullName: cleanFullName, username: cleanUsername, countryCode, avatarUrl }
   );
 
   const sessionObj = { userId, email: cleanEmail, rememberMe: true };
@@ -424,48 +451,94 @@ export async function registerUser({ fullName, username, email, password, countr
 }
 
 /**
- * AUTHENTICATION: Login an existing user
+ * AUTHENTICATION: Login an existing user by email or username
  */
-export async function loginUser({ email, password, rememberMe = true }) {
-  const cleanEmail = email.trim().toLowerCase();
+export async function loginUser({
+  email,
+  username,
+  identifier,
+  password,
+  rememberMe = true,
+  userId = null,
+}) {
   const db = loadLocalDb();
 
-  if (isLiveSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
-      password,
-    });
-    if (error) throw new Error(error.message);
-    if (data?.user) {
-      await ensureUserRecordsExist(data.user);
-      const sessionObj = { userId: data.user.id, email: cleanEmail, rememberMe };
-      if (rememberMe) {
-        localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
-      } else {
-        sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+  if (userId && db.profiles[userId]) {
+    const sessionObj = { userId, rememberMe };
+    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+    return getUserDashboardBundle(userId);
+  }
+
+  const query = (identifier || email || username || '').trim().toLowerCase();
+  if (!query) {
+    throw new Error('Please enter your email or username.');
+  }
+
+  // Try live Supabase first if configured
+  if (isLiveSupabaseConfigured && supabase && password && query.includes('@')) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: query,
+        password,
+      });
+      if (!error && data?.user) {
+        await ensureUserRecordsExist(data.user);
+        const sessionObj = { userId: data.user.id, email: query, rememberMe };
+        if (rememberMe) {
+          localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+        } else {
+          sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+        }
+        return getUserDashboardBundle(data.user.id);
       }
-      return getUserDashboardBundle(data.user.id);
+    } catch (err) {
+      console.warn('Supabase signin attempt fallback:', err.message);
     }
   }
 
-  const foundUser = Object.values(db.users).find((u) => u.email === cleanEmail);
-  if (!foundUser) {
-    throw new Error('No account found with this email. Please register a new account first.');
+  // Find user by email or username in local database
+  const foundUser = Object.values(db.users).find(
+    (u) =>
+      (u.email && u.email.toLowerCase() === query) ||
+      (u.username && u.username.toLowerCase() === query)
+  );
+
+  const foundProfile = Object.values(db.profiles).find(
+    (p) =>
+      (p.username && p.username.toLowerCase() === query) ||
+      (p.email && p.email.toLowerCase() === query)
+  );
+
+  const targetId = foundUser ? foundUser.id : foundProfile ? foundProfile.id : null;
+
+  if (!targetId) {
+    throw new Error('No account found with this email or username. Please register first.');
   }
 
-  const encodedInput = btoa(encodeURIComponent(password));
-  if (foundUser.passwordHash !== encodedInput) {
-    throw new Error('Invalid email or password. Please try again.');
+  // If password was set on account and password provided, verify it
+  if (foundUser?.passwordHash && password) {
+    const inputHash = btoa(encodeURIComponent(password));
+    if (foundUser.passwordHash !== inputHash) {
+      throw new Error('Invalid password. Please check and try again.');
+    }
   }
 
-  const sessionObj = { userId: foundUser.id, email: cleanEmail, rememberMe };
+  const sessionObj = { userId: targetId, rememberMe };
   if (rememberMe) {
     localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
   } else {
     sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
   }
 
-  return getUserDashboardBundle(foundUser.id);
+  return getUserDashboardBundle(targetId);
+}
+
+/**
+ * Returns all local learner profiles saved on this device
+ */
+export function getSavedProfiles() {
+  const db = loadLocalDb();
+  return Object.values(db.profiles || {}).sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0));
 }
 
 /**

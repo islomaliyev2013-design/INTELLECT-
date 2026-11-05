@@ -11,7 +11,58 @@ import AchievementsPage from './pages/AchievementsPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, RefreshCcw } from 'lucide-react';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('NeuroQuiz ErrorBoundary caught error:', error, errorInfo);
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#F8F7FF] text-[#0F172A] flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-indigo-100 shadow-elevated space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+              <Sparkles className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-extrabold text-slate-900">
+              Qayta tiklash / System Recovery
+            </h2>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Kutilmagan xatolik yuz berdi. Ilovani qayta ochish va toza holatda davom ettirish uchun quyidagi tugmani bosing:
+            </p>
+            <button
+              type="button"
+              onClick={this.handleReset}
+              className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider inline-flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-indigo-500/20"
+            >
+              <RefreshCcw className="w-4 h-4" />
+              <span>Qayta yuklash (Restart App)</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function AppRouter() {
   const { profile, isLoadingAuth, activeRoute } = useApp();
@@ -64,9 +115,11 @@ function AppRouter() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppRouter />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <AppRouter />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

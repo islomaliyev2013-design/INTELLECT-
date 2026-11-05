@@ -10,9 +10,12 @@ import {
   X,
   Globe,
   AlertTriangle,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LANGUAGES, UI_TEXT } from '../data/translations';
+import { playCorrectSound, playIncorrectSound, playCompleteSound } from '../utils/audioEffects';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 const QUESTION_TIME_LIMIT = 30; // 30 seconds per question when timer is enabled
@@ -26,6 +29,29 @@ export default function QuizPage() {
   const [lockedQuestions, setLockedQuestions] = useState({}); // { [questionId]: true }
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
   const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
+
+  // Gamified sound effects toggle (enabled by default)
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      const val = localStorage.getItem('neuroquiz_sound_enabled');
+      return val !== null ? JSON.parse(val) : true;
+    } catch (e) {
+      return true;
+    }
+  });
+
+  const toggleSound = () => {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('neuroquiz_sound_enabled', JSON.stringify(next));
+      } catch (e) {}
+      if (next) {
+        playCorrectSound(); // Pleasant test chime preview on enable
+      }
+      return next;
+    });
+  };
 
   const quizStartTimeRef = useRef(Date.now());
 
@@ -59,6 +85,10 @@ export default function QuizPage() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          // Play buzzer sound on timeout
+          if (soundEnabled) {
+            playIncorrectSound();
+          }
           // Auto-lock question as unanswered (-1) when time expires
           setSelectedAnswers((ans) => ({
             ...ans,
@@ -79,10 +109,20 @@ export default function QuizPage() {
 
   /**
    * Selects and immediately locks the answer for the current question
+   * Plays "tinq" for correct answer, and "tininini" for incorrect answer!
    * Prevents answering the same question multiple times (Section 6)
    */
   const handleSelectOption = (optionIndex) => {
     if (!currentQuestion || isCurrentLocked) return;
+
+    const isCorrect = optionIndex === currentQuestion.correctIndex;
+    if (soundEnabled) {
+      if (isCorrect) {
+        playCorrectSound(); // "Tinq!" chime
+      } else {
+        playIncorrectSound(); // "Tininini" buzzer
+      }
+    }
 
     setSelectedAnswers((prev) => ({
       ...prev,
@@ -100,6 +140,9 @@ export default function QuizPage() {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
     } else {
+      if (soundEnabled) {
+        playCompleteSound();
+      }
       setIsSubmittingQuiz(true);
       try {
         const durationSeconds = Math.max(
@@ -153,8 +196,32 @@ export default function QuizPage() {
             </h1>
           </div>
 
-          {/* Language Switcher & Exit Button */}
-          <div className="flex items-center gap-2.5">
+          {/* Sound Toggle, Language Switcher & Exit Button */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Sound Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold ${
+                soundEnabled
+                  ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                  : 'bg-slate-100 text-slate-400 hover:text-slate-600 border border-slate-200'
+              }`}
+              title={soundEnabled ? "Ovoz yoqilgan / Sound ON" : "Ovoz o'chirilgan / Sound OFF"}
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="w-4 h-4 text-indigo-600 animate-pulse" />
+                  <span className="hidden sm:inline">Ovoz</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-4 h-4 text-slate-400" />
+                  <span className="hidden sm:inline">Mute</span>
+                </>
+              )}
+            </button>
+
             <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               <Globe className="w-3.5 h-3.5 text-slate-400 ml-1.5 mr-1" />
               {LANGUAGES.map((l) => (

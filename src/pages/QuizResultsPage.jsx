@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LANGUAGES, UI_TEXT } from '../data/translations';
+import { playCompleteSound } from '../utils/audioEffects';
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -38,7 +39,7 @@ export default function QuizResultsPage() {
 
     setReviewLang(lastQuizResult.quizLanguage || 'en');
 
-    // Trigger celebration confetti for strong scores or level ups
+    // Trigger celebration confetti and sound for strong scores or level ups
     if (
       !lastQuizResult.isHistoricalReview &&
       (lastQuizResult.attempt?.score_points >= 7 ||
@@ -46,6 +47,7 @@ export default function QuizResultsPage() {
         lastQuizResult.leveledUpSubject)
     ) {
       try {
+        playCompleteSound();
         confetti({
           particleCount: 80,
           spread: 70,

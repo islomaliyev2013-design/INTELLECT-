@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "NeuroQuiz Global",
+    "slug": "neuroquiz-global",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F8F7FF"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.neuroquiz.global",
+      "adaptiveIcon": {
+        "backgroundColor": "#F8F7FF"
+      }
+    },
+    "web": {
+      "favicon": "./index.html"
+    }
+  }
+}
+
