@@ -4,22 +4,26 @@
     "slug": "neuroquiz-global",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#F8F7FF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/icon.png"
     },
     "android": {
       "package": "com.neuroquiz.global",
       "adaptiveIcon": {
-        "backgroundColor": "#F8F7FF"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#4F46E5"
       }
     },
     "web": {
-      "favicon": "./index.html"
+      "favicon": "./assets/icon.png"
     }
   }
 }
-

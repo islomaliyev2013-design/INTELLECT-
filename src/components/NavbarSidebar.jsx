@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Compass,
@@ -17,13 +17,18 @@ import {
   Globe,
   Play,
   ChevronDown,
-  QrCode,
-  Smartphone,
+  Music,
+  VolumeX,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { LANGUAGES } from '../data/translations';
 import { getCountryByCode } from '../data/curriculum';
-import MobileQrModal from './MobileQrModal';
+import appIcon from '../assets/icon.png';
+import {
+  toggleBackgroundMusic,
+  subscribeBgmState,
+  getBgmState,
+} from '../utils/audioEffects';
 
 export default function NavbarSidebar({ children }) {
   const {
@@ -39,7 +44,11 @@ export default function NavbarSidebar({ children }) {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [bgmState, setBgmState] = useState(() => getBgmState());
+
+  useEffect(() => {
+    return subscribeBgmState(setBgmState);
+  }, []);
 
   if (!profile || !levelInfo) {
     return <>{children}</>;
@@ -52,13 +61,6 @@ export default function NavbarSidebar({ children }) {
     { id: 'Explore', label: t.nav.explore, icon: Compass },
     { id: 'Progress', label: t.nav.progress, icon: BarChart3 },
     { id: 'Achievements', label: t.nav.achievements, icon: Award },
-    {
-      id: 'Leaderboard',
-      label: t.nav.leaderboard,
-      icon: Trophy,
-      badge: levelInfo.leaderboardUnlocked ? t.liveBadge : t.level10Badge,
-      locked: !levelInfo.leaderboardUnlocked,
-    },
     { id: 'Profile', label: t.nav.profile, icon: User },
     { id: 'Settings', label: t.nav.settings, icon: Settings },
   ];
@@ -78,9 +80,11 @@ export default function NavbarSidebar({ children }) {
             onClick={() => handleNavClick('Dashboard')}
             className="flex items-center gap-3 text-left group"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-5 h-5" />
-            </div>
+            <img
+              src={appIcon}
+              alt="NeuroQuiz Icon"
+              className="w-10 h-10 rounded-xl object-contain group-hover:scale-105 transition-transform"
+            />
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg tracking-tight text-slate-900">
@@ -227,9 +231,11 @@ export default function NavbarSidebar({ children }) {
               onClick={() => handleNavClick('Dashboard')}
               className="flex items-center gap-2"
             >
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white">
-                <Sparkles className="w-4 h-4" />
-              </div>
+              <img
+                src={appIcon}
+                alt="NeuroQuiz Icon"
+                className="w-8 h-8 rounded-lg object-contain"
+              />
               <span className="font-extrabold text-base text-slate-900">NeuroQuiz</span>
             </button>
           </div>
@@ -241,17 +247,34 @@ export default function NavbarSidebar({ children }) {
             </span>
           </div>
 
-          {/* Right Controls: Language Switcher, XP Pill, Level Badge, Profile */}
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
-            {/* Mobile / QR Code Launcher Button */}
+          {/* Right Controls: Lo-Fi Music Toggle, Language Switcher, XP Pill, Level Badge, Profile */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Lo-Fi Music Toggle Button */}
             <button
               type="button"
-              onClick={() => setQrModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-              title="Telefonda ochish (QR Kod)"
+              onClick={() => toggleBackgroundMusic()}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+                bgmState.isPlaying
+                  ? 'bg-indigo-50/90 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                  : 'bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100'
+              }`}
+              title={
+                bgmState.isPlaying
+                  ? 'Lo-Fi Music yoqilgan (Ovozsiz qilish uchun bosing)'
+                  : 'Lo-Fi Music yoqish'
+              }
             >
-              <QrCode className="w-3.5 h-3.5 text-purple-600" />
-              <span className="hidden sm:inline">Telefonda ochish</span>
+              {bgmState.isPlaying ? (
+                <>
+                  <Music className="w-3.5 h-3.5 text-indigo-600 animate-bounce" />
+                  <span>Lo-Fi Music</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Ovozsiz</span>
+                </>
+              )}
             </button>
 
             {/* Trilingual UI Language Selector (UZ / EN / RU) */}
@@ -396,9 +419,11 @@ export default function NavbarSidebar({ children }) {
             <div className="relative w-72 max-w-[85vw] bg-white h-full flex flex-col shadow-2xl z-10">
               <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
+                  <img
+                    src={appIcon}
+                    alt="NeuroQuiz Icon"
+                    className="w-8 h-8 rounded-lg object-contain"
+                  />
                   <span className="font-extrabold text-base text-slate-900">NeuroQuiz</span>
                 </div>
                 <button
@@ -473,9 +498,6 @@ export default function NavbarSidebar({ children }) {
           {children}
         </main>
       </div>
-
-      {/* MOBILE QR CODE MODAL */}
-      <MobileQrModal isOpen={qrModalOpen} onClose={() => setQrModalOpen(false)} />
     </div>
   );
 }

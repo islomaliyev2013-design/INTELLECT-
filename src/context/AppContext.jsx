@@ -110,6 +110,9 @@ export function AppProvider({ children }) {
     const bundle = await registerUser(formData);
     setUserBundle(bundle);
     setActiveRoute('Dashboard');
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', '/');
+    }
     return bundle;
   };
 
@@ -117,6 +120,9 @@ export function AppProvider({ children }) {
     const bundle = await loginUser(formData);
     setUserBundle(bundle);
     setActiveRoute('Dashboard');
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      window.history.replaceState(null, '', '/');
+    }
     return bundle;
   };
 

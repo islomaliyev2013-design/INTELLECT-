@@ -426,52 +426,6 @@ export default function DashboardPage() {
               })}
             </div>
           </div>
-
-          {/* Global Leaderboard Eligibility Banner inside Card */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-50 via-purple-50 to-blue-50 border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    levelInfo.leaderboardUnlocked
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-indigo-600 text-white'
-                  }`}
-                >
-                  {levelInfo.leaderboardUnlocked ? (
-                    <Unlock className="w-5 h-5" />
-                  ) : (
-                    <Lock className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-slate-900">
-                    {t.dashboard.leaderboardStatus}
-                  </h4>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    {levelInfo.leaderboardUnlocked
-                      ? `${t.dashboard.eligibleNow} (${
-                          uiLang === 'uz'
-                            ? `Global Reytingda #${leaderboard?.currentUserRank || '—'}-o'rin`
-                            : uiLang === 'ru'
-                            ? `В мировом рейтинге #${leaderboard?.currentUserRank || '—'}`
-                            : `Global Rank #${leaderboard?.currentUserRank || '—'}`
-                        })`
-                      : `${t.dashboard.unlockedAt10} — ${levelInfo.xpUntilLeaderboard} ${
-                          uiLang === 'uz' ? 'XP qoldi' : uiLang === 'ru' ? 'XP осталось' : 'XP remaining'
-                        }`}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => navigate('Leaderboard')}
-                className="px-4 py-2 rounded-xl bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-xs shrink-0 transition-colors cursor-pointer"
-              >
-                {t.nav.leaderboard}
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* RECENT QUIZ ACTIVITY (5 Cols) */}

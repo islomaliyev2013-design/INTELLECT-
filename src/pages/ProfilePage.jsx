@@ -33,15 +33,15 @@ const SUBJECT_ICONS = {
   math: Calculator,
 };
 
-const PRESET_AVATAR_SEEDS = [
-  'Sardor',
-  'Aziza',
-  'Jasur',
-  'Malika',
-  'Alex',
-  'Elena',
-  'Kenji',
-  'Sophia',
+const PRESET_AVATARS = [
+  '/avatars/avatar-1.png',
+  '/avatars/avatar-2.png',
+  '/avatars/avatar-3.png',
+  '/avatars/avatar-4.png',
+  '/avatars/avatar-5.png',
+  '/avatars/avatar-6.png',
+  '/avatars/avatar-7.png',
+  '/avatars/avatar-8.png',
 ];
 
 export default function ProfilePage() {
@@ -298,23 +298,22 @@ export default function ProfilePage() {
                 {t.profile.choosePresetAvatar}
               </label>
               <div className="flex flex-wrap items-center gap-3">
-                {PRESET_AVATAR_SEEDS.map((seed) => {
-                  const url = `https://api.dicebear.com/9.x/avataaars/svg?seed=${seed}&backgroundColor=c0aede`;
+                {PRESET_AVATARS.map((url, idx) => {
                   return (
                     <button
-                      key={seed}
+                      key={url}
                       type="button"
                       onClick={() => setAvatarUrl(url)}
                       className={`p-1 rounded-2xl border-2 transition-all cursor-pointer ${
                         avatarUrl === url
-                          ? 'border-indigo-600 scale-105 shadow-sm'
+                          ? 'border-indigo-600 scale-105 shadow-md ring-2 ring-indigo-500/20'
                           : 'border-transparent hover:border-indigo-200'
                       }`}
                     >
                       <img
                         src={url}
-                        alt={seed}
-                        className="w-12 h-12 rounded-xl bg-indigo-50"
+                        alt={`3D Avatar ${idx + 1}`}
+                        className="w-13 h-13 rounded-xl object-cover shadow-sm"
                       />
                     </button>
                   );
@@ -343,8 +342,8 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* 6 PROFILE SUMMARY METRICS (Including Global Ranking Status) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* 5 PROFILE SUMMARY METRICS */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-soft">
           <span className="text-[11px] font-bold uppercase text-slate-400">
             {t.dashboard.currentLevel}
@@ -361,22 +360,6 @@ export default function ProfilePage() {
           <p className="text-2xl font-extrabold font-mono text-amber-600 mt-1">
             {profile.total_xp} XP
           </p>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-soft">
-          <span className="text-[11px] font-bold uppercase text-slate-400">
-            {t.profile.globalRank}
-          </span>
-          {leaderboard?.isCurrentUserEligible ? (
-            <p className="text-2xl font-extrabold font-mono text-emerald-600 mt-1">
-              #{leaderboard.currentUserRank}
-            </p>
-          ) : (
-            <p className="text-xs font-extrabold text-amber-700 mt-2 flex items-center gap-1">
-              <Lock className="w-3.5 h-3.5" />
-              {t.profile.lockedUntil10}
-            </p>
-          )}
         </div>
 
         <div className="bg-white rounded-2xl p-4 border border-indigo-100 shadow-soft">

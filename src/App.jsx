@@ -8,7 +8,6 @@ import QuizPage from './pages/QuizPage';
 import QuizResultsPage from './pages/QuizResultsPage';
 import MyProgressPage from './pages/MyProgressPage';
 import AchievementsPage from './pages/AchievementsPage';
-import LeaderboardPage from './pages/LeaderboardPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import { Sparkles, RefreshCcw } from 'lucide-react';
@@ -99,8 +98,6 @@ function AppRouter() {
         return <MyProgressPage />;
       case 'Achievements':
         return <AchievementsPage />;
-      case 'Leaderboard':
-        return <LeaderboardPage />;
       case 'Profile':
         return <ProfilePage />;
       case 'Settings':

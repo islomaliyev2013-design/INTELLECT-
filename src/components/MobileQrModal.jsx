@@ -17,8 +17,15 @@ export default function MobileQrModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // The local Wi-Fi URL of the running Vite dev server
-  const mobileUrl = 'http://192.168.0.9:5173';
+  // Automatically use tunnel URL if opened via tunnel, or Wi-Fi IP if on localhost
+  const currentOrigin =
+    typeof window !== 'undefined' &&
+    window.location?.origin &&
+    !window.location.origin.includes('localhost') &&
+    !window.location.origin.includes('127.0.0.1')
+      ? window.location.origin
+      : 'http://192.168.0.9:5173';
+  const mobileUrl = currentOrigin;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=10&data=${encodeURIComponent(
     mobileUrl
   )}`;
@@ -141,9 +148,9 @@ export default function MobileQrModal({ isOpen, onClose }) {
                 Telefonda <strong>Expo Go</strong> ilovasini oching (App Store yoki Google Play).
               </li>
               <li>
-                Kompyuteringiz terminalida (PowerShell yoki CMD) loyiha papkasida ushbu buyruqni bering:
+                Kompyuteringiz terminalida (PowerShell yoki CMD) loyiha papkasida ushbu buyruqni bering (Radmin VPN va Firewallni aylanib o‘tish uchun):
                 <div className="mt-1.5 p-2 rounded-xl bg-slate-900 text-emerald-400 font-mono text-xs flex items-center justify-between">
-                  <span>npx expo start</span>
+                  <span>npx.cmd expo start --tunnel</span>
                 </div>
               </li>
               <li>

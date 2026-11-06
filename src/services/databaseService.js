@@ -211,9 +211,7 @@ function buildFreshUserProfile({ id, email, fullName, username, countryCode = 'U
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '_');
 
-  const avatarUrl = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(
-    cleanUsername
-  )}&backgroundColor=c0aede`;
+  const avatarUrl = '/avatars/avatar-1.png';
 
   return {
     id,
@@ -386,33 +384,9 @@ export async function registerUser({
     throw new Error('This username is already taken. Please choose another username.');
   }
 
-  let userId = generateId();
+  let userId = existingByEmail?.id || existingByUsername?.id || generateId();
 
-  if (isLiveSupabaseConfigured && supabase) {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password: password || 'QuizSecurePass2026!',
-        options: {
-          data: {
-            full_name: cleanFullName,
-            username: cleanUsername,
-            country_code: countryCode,
-            country_name: getCountryByCode(countryCode).name,
-            avatar_url: avatarUrl,
-          },
-        },
-      });
-      if (error) throw new Error(error.message);
-      if (data?.user?.id) {
-        userId = data.user.id;
-      }
-    } catch (err) {
-      console.warn('Supabase auth signup fallback:', err.message);
-    }
-  }
-
-  // Create isolated account record starting at Level 1, 0 XP
+  // Create isolated account record starting at Level 1, 0 XP immediately (no waiting!)
   const userRecord = {
     id: userId,
     email: cleanEmail,
@@ -439,19 +413,41 @@ export async function registerUser({
   db.user_achievements[userId] = [];
   saveLocalDb(db);
 
-  await ensureUserRecordsExist(
-    { id: userId, email: cleanEmail },
-    { fullName: cleanFullName, username: cleanUsername, countryCode, avatarUrl }
-  );
-
   const sessionObj = { userId, email: cleanEmail, rememberMe: true };
   localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+
+  // Sync with Supabase asynchronously in the background so user never waits
+  if (isLiveSupabaseConfigured && supabase) {
+    (async () => {
+      try {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password || 'QuizSecurePass2026!',
+          options: {
+            data: {
+              full_name: cleanFullName,
+              username: cleanUsername,
+              country_code: countryCode,
+              country_name: getCountryByCode(countryCode).name,
+              avatar_url: freshProfile.avatar_url,
+            },
+          },
+        });
+        await ensureUserRecordsExist(
+          { id: userId, email: cleanEmail },
+          { fullName: cleanFullName, username: cleanUsername, countryCode, avatarUrl: freshProfile.avatar_url }
+        );
+      } catch (err) {
+        console.warn('Background Supabase signup sync:', err?.message);
+      }
+    })();
+  }
 
   return getUserDashboardBundle(userId);
 }
 
 /**
- * AUTHENTICATION: Login an existing user by email or username
+ * AUTHENTICATION: Login an existing user by email or username (Fast instant entry)
  */
 export async function loginUser({
   email,
@@ -474,13 +470,55 @@ export async function loginUser({
     throw new Error('Please enter your email or username.');
   }
 
-  // Try live Supabase first if configured
+  // 1. Check local database first for instant 0ms login
+  const foundUser = Object.values(db.users).find(
+    (u) =>
+      (u.email && u.email.toLowerCase() === query) ||
+      (u.username && u.username.toLowerCase() === query)
+  );
+
+  const foundProfile = Object.values(db.profiles).find(
+    (p) =>
+      (p.username && p.username.toLowerCase() === query) ||
+      (p.email && p.email.toLowerCase() === query)
+  );
+
+  const localTargetId = foundUser ? foundUser.id : foundProfile ? foundProfile.id : null;
+
+  if (localTargetId) {
+    if (foundUser?.passwordHash && password) {
+      const inputHash = btoa(encodeURIComponent(password));
+      if (foundUser.passwordHash !== inputHash) {
+        throw new Error('Invalid password. Please check and try again.');
+      }
+    }
+
+    const sessionObj = { userId: localTargetId, rememberMe };
+    if (rememberMe) {
+      localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+    } else {
+      sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
+    }
+
+    // Background sync with Supabase without blocking login
+    if (isLiveSupabaseConfigured && supabase && password && query.includes('@')) {
+      supabase.auth.signInWithPassword({ email: query, password }).catch(() => {});
+    }
+
+    return getUserDashboardBundle(localTargetId);
+  }
+
+  // 2. If not found locally, try live Supabase with a strict 1.5s timeout
   if (isLiveSupabaseConfigured && supabase && password && query.includes('@')) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email: query,
         password,
       });
+      const timeoutPromise = new Promise((resolve) =>
+        setTimeout(() => resolve({ data: null, error: new Error('timeout') }), 1500)
+      );
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise]);
       if (!error && data?.user) {
         await ensureUserRecordsExist(data.user);
         const sessionObj = { userId: data.user.id, email: query, rememberMe };
@@ -496,41 +534,7 @@ export async function loginUser({
     }
   }
 
-  // Find user by email or username in local database
-  const foundUser = Object.values(db.users).find(
-    (u) =>
-      (u.email && u.email.toLowerCase() === query) ||
-      (u.username && u.username.toLowerCase() === query)
-  );
-
-  const foundProfile = Object.values(db.profiles).find(
-    (p) =>
-      (p.username && p.username.toLowerCase() === query) ||
-      (p.email && p.email.toLowerCase() === query)
-  );
-
-  const targetId = foundUser ? foundUser.id : foundProfile ? foundProfile.id : null;
-
-  if (!targetId) {
-    throw new Error('No account found with this email or username. Please register first.');
-  }
-
-  // If password was set on account and password provided, verify it
-  if (foundUser?.passwordHash && password) {
-    const inputHash = btoa(encodeURIComponent(password));
-    if (foundUser.passwordHash !== inputHash) {
-      throw new Error('Invalid password. Please check and try again.');
-    }
-  }
-
-  const sessionObj = { userId: targetId, rememberMe };
-  if (rememberMe) {
-    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
-  } else {
-    sessionStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(sessionObj));
-  }
-
-  return getUserDashboardBundle(targetId);
+  throw new Error('No account found with this email or username. Please register first.');
 }
 
 /**
@@ -542,35 +546,42 @@ export function getSavedProfiles() {
 }
 
 /**
- * AUTHENTICATION: Restore active session
+ * AUTHENTICATION: Restore active session (Instant 0ms local check + fast timeout guard)
  */
 export async function restoreSession() {
+  try {
+    const raw =
+      localStorage.getItem(LOCAL_SESSION_KEY) || sessionStorage.getItem(LOCAL_SESSION_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.userId) {
+        const db = loadLocalDb();
+        if (db.profiles[parsed.userId]) {
+          return getUserDashboardBundle(parsed.userId);
+        }
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
   if (isLiveSupabaseConfigured && supabase) {
     try {
-      const { data } = await supabase.auth.getSession();
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((resolve) =>
+        setTimeout(() => resolve({ data: null }), 1200)
+      );
+      const { data } = await Promise.race([sessionPromise, timeoutPromise]);
       if (data?.session?.user) {
         await ensureUserRecordsExist(data.session.user);
         return getUserDashboardBundle(data.session.user.id);
       }
     } catch (e) {
-      // fall back to local session check
+      // fall back
     }
   }
 
-  try {
-    const raw =
-      localStorage.getItem(LOCAL_SESSION_KEY) || sessionStorage.getItem(LOCAL_SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed?.userId) return null;
-
-    const db = loadLocalDb();
-    if (!db.profiles[parsed.userId]) return null;
-
-    return getUserDashboardBundle(parsed.userId);
-  } catch (e) {
-    return null;
-  }
+  return null;
 }
 
 /**
@@ -580,11 +591,7 @@ export async function logoutUser() {
   localStorage.removeItem(LOCAL_SESSION_KEY);
   sessionStorage.removeItem(LOCAL_SESSION_KEY);
   if (isLiveSupabaseConfigured && supabase) {
-    try {
-      await supabase.auth.signOut();
-    } catch (e) {
-      // ignore signOut network error
-    }
+    supabase.auth.signOut().catch(() => {});
   }
 }
 
@@ -634,7 +641,19 @@ export async function getUserDashboardBundle(userId) {
     };
   });
 
-  const leaderboardData = await getGlobalLeaderboard(userId);
+  // Auto-upgrade any old flat 2D DiceBear avatars to the new 3D Pixar-style avatars
+  if (!profile.avatar_url || String(profile.avatar_url).includes('dicebear.com')) {
+    profile.avatar_url = '/avatars/avatar-1.png';
+    saveLocalDb(db);
+  }
+
+  const leaderboardData = {
+    competitors: [],
+    topThree: [],
+    isCurrentUserEligible: Boolean(levelInfo.leaderboardUnlocked),
+    currentUserRank: null,
+    xpNeededToUnlock: levelInfo.xpUntilLeaderboard,
+  };
 
   return {
     profile: {
@@ -910,27 +929,29 @@ export async function submitCompletedQuiz({
   db.user_achievements[userId] = existingAchievements;
   saveLocalDb(db);
 
-  // Persist to live Supabase PostgreSQL when configured
+  // Persist to live Supabase PostgreSQL non-blockingly in the background
   if (isLiveSupabaseConfigured && supabase) {
-    try {
-      const { leaderboard_unlocked, ...profileToUpdate } = updatedProfile;
-      await supabase.from('profiles').upsert(profileToUpdate, { onConflict: 'id' });
+    (async () => {
+      try {
+        const { leaderboard_unlocked, ...profileToUpdate } = updatedProfile;
+        await supabase.from('profiles').upsert(profileToUpdate, { onConflict: 'id' });
 
-      const { review_items, subject_level_before, ...remoteAttempt } = attemptRecord;
-      await supabase.from('quiz_attempts').insert(remoteAttempt);
-      await supabase.from('user_answers').insert(answerRecords);
-      await supabase
-        .from('user_subject_progress')
-        .upsert(updatedSubjectRecord, { onConflict: 'user_id,subject_id' });
-
-      if (newlyUnlocked.length > 0) {
+        const { review_items, subject_level_before, ...remoteAttempt } = attemptRecord;
+        await supabase.from('quiz_attempts').insert(remoteAttempt);
+        await supabase.from('user_answers').insert(answerRecords);
         await supabase
-          .from('user_achievements')
-          .upsert(newlyUnlocked, { onConflict: 'user_id,achievement_key' });
+          .from('user_subject_progress')
+          .upsert(updatedSubjectRecord, { onConflict: 'user_id,subject_id' });
+
+        if (newlyUnlocked.length > 0) {
+          await supabase
+            .from('user_achievements')
+            .upsert(newlyUnlocked, { onConflict: 'user_id,achievement_key' });
+        }
+      } catch (err) {
+        // Ignore background sync warnings
       }
-    } catch (err) {
-      console.warn('Supabase quiz sync warning:', err.message);
-    }
+    })();
   }
 
   const updatedBundle = await getUserDashboardBundle(userId);
@@ -1057,12 +1078,11 @@ export async function updateUserProfile(userId, updates = {}) {
   saveLocalDb(db);
 
   if (isLiveSupabaseConfigured && supabase) {
-    try {
-      const { leaderboard_unlocked, ...remoteUpdates } = updatedProfile;
-      await supabase.from('profiles').upsert(remoteUpdates, { onConflict: 'id' });
-    } catch (e) {
-      console.warn('Supabase profile update fallback:', e.message);
-    }
+    const { leaderboard_unlocked, ...remoteUpdates } = updatedProfile;
+    supabase
+      .from('profiles')
+      .upsert(remoteUpdates, { onConflict: 'id' })
+      .catch(() => {});
   }
 
   return getUserDashboardBundle(userId);

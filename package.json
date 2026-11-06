@@ -3,19 +3,24 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "node ./node_modules/vite/bin/vite.js --host",
+    "build": "node ./scripts/vercel-build.mjs",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "start": "expo start",
+    "tunnel": "expo start --tunnel"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
     "canvas-confetti": "^1.9.3",
     "clsx": "^2.1.1",
+    "expo": "^52.0.49",
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.474.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-native": "^0.76.7",
     "react-native-web": "^0.19.13",
     "tailwind-merge": "^3.0.1"
   },
